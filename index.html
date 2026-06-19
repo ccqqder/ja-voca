@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日語單字跟讀練習</title>
+<style>
+  :root{
+    --paper:#f6f1e7; --ink:#2b2b28; --sub:#7a7468; --accent:#b5503c;
+    --accent-soft:#e9c8bf; --line:#ddd4c4; --card:#fffdf8; --green:#5a7d5a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",
+      "Microsoft JhengHei","PingFang TC",system-ui,sans-serif;
+    background:var(--paper); color:var(--ink);
+    background-image:radial-gradient(rgba(0,0,0,.015) 1px,transparent 1px);
+    background-size:4px 4px;
+  }
+  header{padding:18px 20px 8px;text-align:center;}
+  header h1{font-size:18px;margin:0;font-weight:600;letter-spacing:.5px;}
+  header p{margin:4px 0 0;color:var(--sub);font-size:13px;}
+  .wrap{max-width:920px;margin:0 auto;padding:0 16px 60px;}
+
+  /* 主舞台 */
+  .stage{
+    background:var(--card);border:1px solid var(--line);border-radius:18px;
+    padding:34px 24px 30px;margin:14px 0;text-align:center;
+    box-shadow:0 6px 22px rgba(120,90,60,.08);min-height:230px;
+    display:flex;flex-direction:column;justify-content:center;
+  }
+  .kana{font-size:30px;color:var(--accent);min-height:38px;letter-spacing:2px;}
+  .kanji{font-size:64px;font-weight:600;margin:6px 0 10px;line-height:1.1;}
+  .zh{font-size:20px;color:var(--sub);}
+  .counter{color:var(--sub);font-size:13px;margin-top:16px;}
+
+  /* 控制鈕 */
+  .controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:6px 0 18px;}
+  button{
+    font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);
+    color:var(--ink);border-radius:10px;padding:10px 16px;transition:.15s;
+  }
+  button:hover{border-color:var(--accent);color:var(--accent);}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent);
+    padding:12px 30px;font-size:16px;font-weight:600;}
+  button.primary:hover{background:#9c422f;color:#fff;}
+  button:disabled{opacity:.4;cursor:default;}
+
+  /* 設定 */
+  .settings{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+    gap:14px 26px;margin-bottom:18px;
+  }
+  .field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--sub);}
+  .field .val{color:var(--accent);font-weight:600;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  select{font:inherit;padding:6px;border:1px solid var(--line);border-radius:8px;background:#fff;}
+  .check{flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:14px;}
+  .check input{width:18px;height:18px;accent-color:var(--accent);}
+
+  /* 清單 */
+  .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+  .group-title{grid-column:1/-1;font-size:13px;color:var(--green);font-weight:600;
+    margin:10px 0 2px;padding-left:4px;border-left:3px solid var(--green);}
+  .item{
+    background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:8px 10px;cursor:pointer;transition:.12s;
+  }
+  .item:hover{border-color:var(--accent);}
+  .item.active{background:var(--accent-soft);border-color:var(--accent);}
+  .item .ik{font-size:16px;font-weight:600;}
+  .item .ir{font-size:12px;color:var(--accent);}
+  .item .iz{font-size:11px;color:var(--sub);}
+  .hint{color:var(--sub);font-size:12px;text-align:center;margin-top:14px;line-height:1.6;}
+  .warn{background:#fff3f0;border:1px solid var(--accent-soft);color:var(--accent);
+    padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;display:none;}
+</style>
+</head>
+<body>
+<header>
+  <h1>日語單字跟讀練習</h1>
+  <p>依序朗讀・跟著複誦 — 共 <span id="total"></span> 字</p>
+</header>
+
+<div class="wrap">
+  <div class="warn" id="warn">⚠️ 偵測不到日語語音。請用 <b>Microsoft Edge</b> 開啟，或到 Windows 設定 → 時間與語言 → 語言 → 新增「日本語」語音套件。</div>
+
+  <div class="stage">
+    <div class="kana" id="kana">　</div>
+    <div class="kanji" id="kanji">準備好了嗎？</div>
+    <div class="zh" id="zh">按「▶ 開始」依序跟讀</div>
+    <div class="counter" id="counter"></div>
+  </div>
+
+  <div class="controls">
+    <button id="prev">⏮ 上一個</button>
+    <button class="primary" id="play">▶ 開始</button>
+    <button id="next">下一個 ⏭</button>
+    <button id="restart">↺ 從頭</button>
+  </div>
+
+  <div class="settings">
+    <label class="field">語速 <span class="val" id="rateVal">0.9×</span>
+      <input type="range" id="rate" min="0.5" max="1.3" step="0.05" value="0.9"></label>
+    <label class="field">每字後停頓（跟讀用） <span class="val" id="gapVal">1.5 秒</span>
+      <input type="range" id="gap" min="0" max="5" step="0.5" value="1.5"></label>
+    <label class="field">每字重複 <span class="val" id="repVal">1 次</span>
+      <input type="range" id="rep" min="1" max="3" step="1" value="1"></label>
+    <label class="field">日語語音
+      <select id="voice"></select></label>
+    <label class="field check"><input type="checkbox" id="loop"> 循環播放</label>
+    <label class="field check"><input type="checkbox" id="readZh"> 也唸中文意思</label>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <p class="hint">
+    快捷鍵：<b>空白鍵</b>=播放/暫停 ・ <b>←/→</b>=上一個/下一個<br>
+    可點清單任一單字，從那裡開始播放。
+  </p>
+</div>
+
+<script>
+const DATA = [
+  {g:"職業・身分", items:[
+    {k:"日本人", r:"にほんじん", z:"日本人"},
+    {k:"会社員", r:"かいしゃいん", z:"公司職員"},
+    {k:"公務員", r:"こうむいん", z:"公務員"},
+    {k:"私", r:"わたし", z:"我"},
+    {k:"教師", r:"きょうし", z:"老師"},
+    {k:"先生", r:"せんせい", z:"老師（敬稱）"},
+    {k:"銀行員", r:"ぎんこういん", z:"銀行職員"},
+    {k:"大学生", r:"だいがくせい", z:"大學生"},
+    {k:"主婦", r:"しゅふ", z:"家庭主婦"},
+  ]},
+  {g:"あいさつ・基本表現", items:[
+    {k:"初めまして", r:"はじめまして", z:"初次見面；幸會"},
+    {k:"どうぞよろしく", r:"どうぞよろしく", z:"請多指教"},
+    {k:"お願いします", r:"おねがいします", z:"麻煩（您）；拜託（您）"},
+    {k:"日本語", r:"にほんご", z:"日文"},
+    {k:"こちらこそ", r:"こちらこそ", z:"彼此、彼此"},
+    {k:"はい", r:"はい", z:"是的；沒錯"},
+    {k:"いいえ", r:"いいえ", z:"不是；不對"},
+    {k:"そう", r:"そう", z:"那樣"},
+  ]},
+  {g:"学校・職場", items:[
+    {k:"2年生", r:"にねんせい", z:"二年級學生"},
+    {k:"市役所", r:"しやくしょ", z:"市政府"},
+    {k:"職員", r:"しょくいん", z:"職員（公家機關／學校）"},
+    {k:"高校", r:"こうこう", z:"高中"},
+    {k:"社員", r:"しゃいん", z:"職員（私人公司）"},
+    {k:"区役所", r:"くやくしょ", z:"區公所"},
+    {k:"課長", r:"かちょう", z:"課長；科長"},
+    {k:"3年生", r:"さんねんせい", z:"三年級學生"},
+  ]},
+  {g:"指示・呼びかけ", items:[
+    {k:"こちら", r:"こちら", z:"這位（先生、女士）"},
+  ]},
+  {g:"電話・会社", items:[
+    {k:"電話番号", r:"でんわばんごう", z:"電話號碼"},
+    {k:"何番", r:"なんばん", z:"幾號"},
+    {k:"会社", r:"かいしゃ", z:"公司"},
+    {k:"内線", r:"ないせん", z:"分機"},
+    {k:"家", r:"うち", z:"家"},
+  ]},
+  {g:"会話表現", items:[
+    {k:"次", r:"つぎ", z:"下一個"},
+    {k:"方", r:"かた", z:"先生；女士（敬稱）"},
+    {k:"名前", r:"なまえ", z:"姓名"},
+  ]},
+];
+
+// 攤平成一維陣列
+const WORDS = [];
+DATA.forEach(grp => grp.items.forEach(it => WORDS.push({...it, grp:grp.g})));
+document.getElementById("total").textContent = WORDS.length;
+
+const synth = window.speechSynthesis;
+let jaVoices = [], zhVoice = null;
+let idx = -1, playing = false, token = 0;
+
+// ---- 語音載入 ----
+function loadVoices(){
+  const all = synth.getVoices();
+  jaVoices = all.filter(v => v.lang && v.lang.toLowerCase().startsWith("ja"));
+  zhVoice = all.find(v => /zh/i.test(v.lang)) || null;
+  const sel = document.getElementById("voice");
+  sel.innerHTML = "";
+  if(jaVoices.length === 0){
+    document.getElementById("warn").style.display = "block";
+    const o = document.createElement("option"); o.textContent = "（無日語語音）"; sel.appendChild(o);
+  } else {
+    document.getElementById("warn").style.display = "none";
+    jaVoices.forEach((v,i)=>{
+      const o = document.createElement("option");
+      o.value = i; o.textContent = v.name.replace("Microsoft ","") + " ("+v.lang+")";
+      sel.appendChild(o);
+    });
+  }
+}
+loadVoices();
+if(synth.onvoiceschanged !== undefined) synth.onvoiceschanged = loadVoices;
+
+// ---- 清單渲染 ----
+const listEl = document.getElementById("list");
+let flatI = 0;
+DATA.forEach(grp=>{
+  const t = document.createElement("div"); t.className="group-title"; t.textContent=grp.g;
+  listEl.appendChild(t);
+  grp.items.forEach(it=>{
+    const i = flatI++;
+    const d = document.createElement("div"); d.className="item"; d.dataset.i=i;
+    d.innerHTML = `<div class="ik">${it.k}</div><div class="ir">${it.r}</div><div class="iz">${it.z}</div>`;
+    d.onclick = ()=>{ stop(); idx=i; render(); play(); };
+    listEl.appendChild(d);
+  });
+});
+const itemEls = [...document.querySelectorAll(".item")];
+
+// ---- 顯示 ----
+function render(){
+  const w = WORDS[idx] || {};
+  document.getElementById("kana").textContent = w.r || "　";
+  document.getElementById("kanji").textContent = w.k || "—";
+  document.getElementById("zh").textContent = w.z || "";
+  document.getElementById("counter").textContent =
+    idx>=0 ? `${idx+1} / ${WORDS.length} ・ ${w.grp}` : "";
+  itemEls.forEach((el,i)=>el.classList.toggle("active", i===idx));
+  if(idx>=0) itemEls[idx].scrollIntoView({block:"nearest",behavior:"smooth"});
+}
+
+// ---- 工具：等待 / 唸一句 ----
+const sleep = (ms, myToken) => new Promise(res=>{
+  const t = setTimeout(()=>res(true), ms);
+  const check = setInterval(()=>{ if(myToken!==token){clearTimeout(t);clearInterval(check);res(false);} },50);
+});
+function speak(text, voice, rate, myToken){
+  return new Promise(res=>{
+    if(myToken!==token) return res(false);
+    const u = new SpeechSynthesisUtterance(text);
+    if(voice) u.voice = voice;
+    u.rate = rate; u.pitch = 1;
+    u.onend = ()=>res(true);
+    u.onerror = ()=>res(true);
+    synth.speak(u);
+  });
+}
+
+// ---- 主播放迴圈 ----
+async function play(){
+  if(jaVoices.length===0){ alert("找不到日語語音，請改用 Microsoft Edge 開啟，或安裝日語語音套件。"); return; }
+  if(idx<0) idx=0;
+  playing = true; setPlayBtn();
+  const myToken = ++token;
+
+  while(playing && idx < WORDS.length){
+    render();
+    const w = WORDS[idx];
+    const rate = parseFloat(document.getElementById("rate").value);
+    const gap  = parseFloat(document.getElementById("gap").value)*1000;
+    const rep  = parseInt(document.getElementById("rep").value);
+    const jv   = jaVoices[ document.getElementById("voice").value || 0 ];
+    const doZh = document.getElementById("readZh").checked;
+
+    for(let n=0; n<rep; n++){
+      if(myToken!==token) return;
+      await speak(w.r, jv, rate, myToken);
+      if(myToken!==token) return;
+      if(n<rep-1){ if(!await sleep(400, myToken)) return; }
+    }
+    if(doZh && zhVoice){
+      if(!await sleep(300, myToken)) return;
+      await speak(w.z.split(/[；;（(]/)[0], zhVoice, 1, myToken);
+    }
+    if(myToken!==token) return;
+    if(!await sleep(gap, myToken)) return;   // 跟讀停頓（可被中斷）
+
+    if(idx === WORDS.length-1){
+      if(document.getElementById("loop").checked){ idx=0; continue; }
+      else break;
+    }
+    idx++;
+  }
+  playing = false; setPlayBtn();
+}
+
+function stop(){ playing=false; token++; synth.cancel(); setPlayBtn(); }
+function setPlayBtn(){ document.getElementById("play").textContent = playing ? "⏸ 暫停" : "▶ 開始"; }
+
+// ---- 按鈕 ----
+document.getElementById("play").onclick = ()=>{ playing ? stop() : play(); };
+document.getElementById("next").onclick = ()=>{ stop(); idx=Math.min(idx+1,WORDS.length-1); render(); };
+document.getElementById("prev").onclick = ()=>{ stop(); idx=Math.max(idx-1,0); render(); };
+document.getElementById("restart").onclick = ()=>{ stop(); idx=0; render(); play(); };
+
+// ---- 即時數值 ----
+const bind=(id,fmt,out)=>{const e=document.getElementById(id);const o=document.getElementById(out);
+  const up=()=>o.textContent=fmt(e.value);e.oninput=up;up();};
+bind("rate",v=>(+v).toFixed(2)+"×","rateVal");
+bind("gap", v=>(+v).toFixed(1)+" 秒","gapVal");
+bind("rep", v=>v+" 次","repVal");
+
+// ---- 快捷鍵 ----
+document.addEventListener("keydown",e=>{
+  if(e.code==="Space"){e.preventDefault(); playing?stop():play();}
+  else if(e.code==="ArrowRight"){e.preventDefault();document.getElementById("next").click();}
+  else if(e.code==="ArrowLeft"){e.preventDefault();document.getElementById("prev").click();}
+});
+
+render();
+</script>
+</body>
+</html>
